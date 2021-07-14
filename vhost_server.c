@@ -411,6 +411,8 @@ static int in_msg_server(void* context, ServerMsg* msg)
 
     if (msg_handlers[msg->msg.request]) {
         result = msg_handlers[msg->msg.request](vhost_server, msg);
+    } else {
+        printf(">>> NOT Found cmd handle.\n");
     }
 
     return result;

@@ -51,6 +51,52 @@ const char* cmd_from_vhostmsg(const VhostUserMsg* msg)
         return "VHOST_USER_SET_VRING_CALL";
     case VHOST_USER_SET_VRING_ERR:
         return "VHOST_USER_SET_VRING_ERR";
+    case VHOST_USER_GET_PROTOCOL_FEATURES:
+        return "VHOST_USER_GET_PROTOCOL_FEATURES";
+    case VHOST_USER_SET_PROTOCOL_FEATURES:
+        return "VHOST_USER_SET_PROTOCOL_FEATURES";
+    case VHOST_USER_GET_QUEUE_NUM:
+        return "VHOST_USER_GET_QUEUE_NUM";
+    case VHOST_USER_SET_VRING_ENABLE:
+        return "VHOST_USER_SET_VRING_ENABLE";
+    case VHOST_USER_SEND_RARP:
+        return "VHOST_USER_SEND_RARP";
+    case VHOST_USER_NET_SET_MTU:
+        return "VHOST_USER_NET_SET_MTU";
+    case VHOST_USER_SET_SLAVE_REQ_FD:
+        return "VHOST_USER_SET_SLAVE_REQ_FD";
+    case VHOST_USER_IOTLB_MSG:
+        return "VHOST_USER_IOTLB_MSG";
+    case VHOST_USER_SET_VRING_ENDIAN:
+        return "VHOST_USER_SET_VRING_ENDIAN";
+    case VHOST_USER_GET_CONFIG:
+        return "VHOST_USER_GET_CONFIG";
+    case VHOST_USER_SET_CONFIG:
+        return "VHOST_USER_SET_CONFIG";
+    case VHOST_USER_CREATE_CRYPTO_SESSION:
+        return "VHOST_USER_CREATE_CRYPTO_SESSION";
+    case VHOST_USER_CLOSE_CRYPTO_SESSION:
+        return "VHOST_USER_CLOSE_CRYPTO_SESSION";
+    case VHOST_USER_POSTCOPY_ADVISE :
+        return "VHOST_USER_POSTCOPY_ADVISE";
+    case VHOST_USER_POSTCOPY_LISTEN :
+        return "VHOST_USER_POSTCOPY_LISTEN";
+    case VHOST_USER_POSTCOPY_END    :
+        return "VHOST_USER_POSTCOPY_END";
+    case VHOST_USER_GET_INFLIGHT_FD:
+        return "VHOST_USER_GET_INFLIGHT_FD";
+    case VHOST_USER_SET_INFLIGHT_FD:
+        return "VHOST_USER_SET_INFLIGHT_FD";
+    case VHOST_USER_GPU_SET_SOCKET:
+        return "VHOST_USER_GPU_SET_SOCKET";
+    case VHOST_USER_RESET_DEVICE:
+        return "VHOST_USER_RESET_DEVICE";
+    case VHOST_USER_GET_MAX_MEM_SLOTS:
+        return "VHOST_USER_GET_MAX_MEM_SLOTS";
+    case VHOST_USER_ADD_MEM_REG:
+        return "VHOST_USER_ADD_MEM_REG";
+    case VHOST_USER_REM_MEM_REG:
+        return "VHOST_USER_REM_MEM_REG";
     case VHOST_USER_MAX:
         return "VHOST_USER_MAX";
     }
@@ -112,6 +158,29 @@ void dump_vhostmsg(const VhostUserMsg* msg)
     case VHOST_USER_SET_VRING_KICK:
     case VHOST_USER_SET_VRING_CALL:
     case VHOST_USER_SET_VRING_ERR:
+    case VHOST_USER_GET_PROTOCOL_FEATURES:
+    case VHOST_USER_SET_PROTOCOL_FEATURES:
+    case VHOST_USER_GET_QUEUE_NUM:
+    case VHOST_USER_SET_VRING_ENABLE:
+    case VHOST_USER_SEND_RARP:
+    case VHOST_USER_NET_SET_MTU:
+    case VHOST_USER_SET_SLAVE_REQ_FD:
+    case VHOST_USER_IOTLB_MSG:
+    case VHOST_USER_SET_VRING_ENDIAN:
+    case VHOST_USER_GET_CONFIG:
+    case VHOST_USER_SET_CONFIG:
+    case VHOST_USER_CREATE_CRYPTO_SESSION:
+    case VHOST_USER_CLOSE_CRYPTO_SESSION:
+    case VHOST_USER_POSTCOPY_ADVISE :
+    case VHOST_USER_POSTCOPY_LISTEN :
+    case VHOST_USER_POSTCOPY_END    :
+    case VHOST_USER_GET_INFLIGHT_FD:
+    case VHOST_USER_SET_INFLIGHT_FD:
+    case VHOST_USER_GPU_SET_SOCKET:
+    case VHOST_USER_RESET_DEVICE:
+    case VHOST_USER_GET_MAX_MEM_SLOTS:
+    case VHOST_USER_ADD_MEM_REG:
+    case VHOST_USER_REM_MEM_REG:
         fprintf(stdout, "u64: 0x%"PRIx64"\n", msg->u64);
         break;
     case VHOST_USER_NONE:
@@ -119,8 +188,8 @@ void dump_vhostmsg(const VhostUserMsg* msg)
         break;
     }
 
-    fprintf(stdout,
-            "................................................................................\n");
+//    fprintf(stdout,
+//            "................................................................................\n");
 }
 
 void dump_buffer(uint8_t* p, size_t len)

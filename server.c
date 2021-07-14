@@ -119,6 +119,8 @@ static int receive_sock_server(FdNode* node)
     msg.fd_num = sizeof(msg.fds)/sizeof(int);
 
     r = vhost_user_recv_fds(sock, &msg.msg, msg.fds, &msg.fd_num);
+    printf("\n");
+    printf("===================== recv msg %d\n", r);
     if (r < 0) {
         perror("recv");
         status = ServerSockError;
@@ -154,6 +156,7 @@ static int receive_sock_server(FdNode* node)
                 msg.msg.flags &= ~VHOST_USER_VERSION_MASK;
                 msg.msg.flags |= VHOST_USER_VERSION;
                 msg.msg.flags |= VHOST_USER_REPLY_MASK;
+                printf("reply msg\n");
                 if (vhost_user_send_fds(sock, &msg.msg, 0, 0) < 0) {
                     perror("send");
                     status = ServerSockError;

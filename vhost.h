@@ -23,6 +23,15 @@ struct vhost_vring_addr {
   uint64_t desc_user_addr, used_user_addr, avail_user_addr, log_guest_addr;
 };
 
+
+
+/* v1.0 compliant. */
+#define VIRTIO_F_VERSION_1		32
+
+#define VIRTIO_F_ACCESS_PLATFORM	33
+/* Legacy name for VIRTIO_F_ACCESS_PLATFORM (for compatibility with old userspace) */
+#define VIRTIO_F_IOMMU_PLATFORM		VIRTIO_F_ACCESS_PLATFORM
+
 struct virtio_net_hdr
 {
 #define VIRTIO_NET_HDR_F_NEEDS_CSUM     1       // Use csum_start, csum_offset
