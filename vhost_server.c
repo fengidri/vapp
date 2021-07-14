@@ -13,11 +13,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include "fd_list.h"
 #include "shm.h"
 #include "vhost_server.h"
 #include "vring.h"
+
+bool dump_packet;
 
 typedef int (*MsgHandler)(VhostServer* vhost_server, ServerMsg* msg);
 
@@ -335,7 +338,8 @@ static int avail_handler_server(void* context, void* buf, size_t size)
     vhost_server->buffer_size = size;
 
 #ifdef DUMP_PACKETS
-    dump_buffer(buf, size);
+    if (dump_packet)
+        dump_buffer(buf, size);
 #endif
 
     return 0;

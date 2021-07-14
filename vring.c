@@ -224,7 +224,8 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
     size_t hdr_len = sizeof(struct virtio_net_hdr);
 
 #ifdef DUMP_PACKETS
-    fprintf(stdout, "chunks: ");
+    if (dump_packet)
+        fprintf(stdout, "chunks: ");
 #endif
 
     i=d_idx;
@@ -242,7 +243,8 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
         if (len + cur_len < buf_size) {
             memcpy(buf + len, cur, cur_len);
 #ifdef DUMP_PACKETS
-            fprintf(stdout, "%d ", cur_len);
+            if (dump_packet)
+                fprintf(stdout, "%d ", cur_len);
 #endif
         } else {
             break;
@@ -266,7 +268,8 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
     used->ring[u_idx].len = len;
 
 #ifdef DUMP_PACKETS
-    fprintf(stdout, "\n");
+    if (dump_packet)
+        fprintf(stdout, "\n");
 #endif
 
     // check the header

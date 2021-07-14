@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include "vhost_client.h"
 #include "vhost_server.h"
@@ -22,6 +23,7 @@ int app_running = 0;
 static void signal_handler(int);
 static void init_signals(void);
 static void cleanup(void);
+extern bool dump_packet;
 
 int main(int argc, char* argv[])
 {
@@ -33,7 +35,7 @@ int main(int argc, char* argv[])
     atexit(cleanup);
     init_signals();
 
-    while ((opt = getopt(argc, argv, "q:s:c:")) != -1) {
+    while ((opt = getopt(argc, argv, "q:s:c:d")) != -1) {
 
         switch (opt) {
         case 'q':
@@ -45,12 +47,12 @@ int main(int argc, char* argv[])
         case 'c':
             vhost_slave = new_vhost_server(optarg, 0 /*is_listen*/);
             break;
+        case 'd':
+            dump_packet = true;
+            break;
         default:
             break;
         }
-
-        if (vhost_master || vhost_slave)
-            break;
     }
 
     if (vhost_slave) {
@@ -65,6 +67,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "\t-q - act as master\n");
         fprintf(stderr, "\t-s - act as slave server\n");
         fprintf(stderr, "\t-c - act as slave client\n");
+        fprintf(stderr, "\t-d - dump packet\n");
         exit(EXIT_FAILURE);
     }
 
