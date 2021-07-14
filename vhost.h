@@ -12,7 +12,7 @@
 #define VHOST_H_
 
 enum {
-    VHOST_MEMORY_MAX_NREGIONS = 8
+    VHOST_MEMORY_MAX_NREGIONS = 128
 };
 
 // Structures imported from the Linux headers.

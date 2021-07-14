@@ -116,19 +116,47 @@ static uintptr_t _map_user_addr(VhostServer* vhost_server, uint64_t addr)
     return result;
 }
 
-static int _get_features(VhostServer* vhost_server, ServerMsg* msg)
+static int _get_prot_features(VhostServer* vhost_server, ServerMsg* msg)
 {
     fprintf(stdout, "%s\n", __FUNCTION__);
 
-    msg->msg.u64 = 0; // no features
+    msg->msg.u64 = 1UL << VHOST_USER_PROTOCOL_F_CONFIGURE_MEM_SLOTS;
+    printf("get feature: %ld\n", msg->msg.u64);
     msg->msg.size = MEMB_SIZE(VhostUserMsg,u64);
 
     return 1; // should reply back
 }
 
+static int _get_mem_slots(VhostServer* vhost_server, ServerMsg* msg)
+{
+    fprintf(stdout, "%s\n", __FUNCTION__);
+
+    msg->msg.u64 = VHOST_MEMORY_MAX_NREGIONS;
+    msg->msg.size = MEMB_SIZE(VhostUserMsg,u64);
+
+    return 1; // should reply back
+}
+
+static int _get_features(VhostServer* vhost_server, ServerMsg* msg)
+{
+    fprintf(stdout, "%s\n", __FUNCTION__);
+    uint64_t features = 0;
+
+//    features |= 1UL << VIRTIO_F_VERSION_1;
+    features |= 1UL << VHOST_USER_F_PROTOCOL_FEATURES;
+//    features |= 1UL << VIRTIO_F_IOMMU_PLATFORM;
+
+    msg->msg.u64 = features;
+    msg->msg.size = MEMB_SIZE(VhostUserMsg,u64);
+
+    return 1; // should reply back
+}
+
+
 static int _set_features(VhostServer* vhost_server, ServerMsg* msg)
 {
     fprintf(stdout, "%s\n", __FUNCTION__);
+    printf("set feature: iommu: %lu\n", msg->msg.u64 & (1UL << VIRTIO_F_IOMMU_PLATFORM));
     return 0;
 }
 
@@ -166,6 +194,24 @@ static int __add_reg(VhostServer* vhost_server, VhostServerMemoryRegion *region,
     region->mmap_addr += reg->mmap_offset;
 
     vhost_server->memory.nregions++;
+
+    return 0;
+}
+
+static int _add_mem_reg(VhostServer* vhost_server, ServerMsg* msg)
+{
+    VhostServerMemoryRegion *region;
+
+    if (msg->fd_num != 1) {
+        printf(">>>> err: not fd.\n");
+        exit(-1);
+    }
+
+    printf("size: %u fd num: %lu\n", msg->msg.size, msg->fd_num);
+
+    region = &vhost_server->memory.regions[vhost_server->memory.nregions];
+
+    __add_reg(vhost_server, region, &msg->msg.memory_single.region, msg->fds[0]);
 
     return 0;
 }
@@ -398,6 +444,9 @@ static MsgHandler msg_handlers[VHOST_USER_MAX] = {
         _set_vring_kick,    // VHOST_USER_SET_VRING_KICK
         _set_vring_call,    // VHOST_USER_SET_VRING_CALL
         _set_vring_err,     // VHOST_USER_SET_VRING_ERR
+        _get_prot_features, // VHOST_USER_GET_PROTOCOL_FEATURES
+        [VHOST_USER_GET_MAX_MEM_SLOTS] = _get_mem_slots,
+        [VHOST_USER_ADD_MEM_REG] = _add_mem_reg,
         };
 
 static int in_msg_server(void* context, ServerMsg* msg)
