@@ -106,8 +106,7 @@ static uintptr_t _map_user_addr(VhostServer* vhost_server, uint64_t addr)
     for (idx = 0; idx < vhost_server->memory.nregions; idx++) {
         VhostServerMemoryRegion *region = &vhost_server->memory.regions[idx];
 
-        if (region->userspace_addr <= addr
-                && addr < (region->userspace_addr + region->memory_size)) {
+        if (region->userspace_addr <= addr && addr < (region->userspace_addr + region->memory_size)) {
             result = region->mmap_addr + addr - region->userspace_addr;
             break;
         }
@@ -262,21 +261,37 @@ static int _set_vring_num(VhostServer* vhost_server, ServerMsg* msg)
 
 static int _set_vring_addr(VhostServer* vhost_server, ServerMsg* msg)
 {
-    fprintf(stdout, "%s\n", __FUNCTION__);
-
     int idx = msg->msg.addr.index;
+    uintptr_t p;
+
+    fprintf(stdout, "%s  idx: %d\n", __FUNCTION__, idx);
 
     assert(idx<VHOST_CLIENT_VRING_NUM);
 
-    vhost_server->vring_table.vring[idx].desc =
-            (struct vring_desc*) _map_user_addr(vhost_server,
-                    msg->msg.addr.desc_user_addr);
-    vhost_server->vring_table.vring[idx].avail =
-            (struct vring_avail*) _map_user_addr(vhost_server,
-                    msg->msg.addr.avail_user_addr);
-    vhost_server->vring_table.vring[idx].used =
-            (struct vring_used*) _map_user_addr(vhost_server,
-                    msg->msg.addr.used_user_addr);
+    printf("avail: %p %p %p\n", (void *)msg->msg.addr.desc_user_addr,
+                                (void *)msg->msg.addr.avail_user_addr,
+                                (void *)msg->msg.addr.used_user_addr);
+
+    p = _map_user_addr(vhost_server, msg->msg.addr.desc_user_addr);
+    if (!p) {
+        printf("get desc addr fail.\n");
+        exit(-1);
+    }
+    vhost_server->vring_table.vring[idx].desc = (struct vring_desc*)p;
+
+    p = _map_user_addr(vhost_server, msg->msg.addr.avail_user_addr);
+    if (!p) {
+        printf("get avail addr fail.\n");
+        exit(-1);
+    }
+    vhost_server->vring_table.vring[idx].avail = (struct vring_avail*)p;
+
+    p = _map_user_addr(vhost_server, msg->msg.addr.used_user_addr);
+    if (!p) {
+        printf("get used addr fail.\n");
+        exit(-1);
+    }
+    vhost_server->vring_table.vring[idx].used = (struct vring_used*)p;
 
     vhost_server->vring_table.vring[idx].last_used_idx =
             vhost_server->vring_table.vring[idx].used->idx;
