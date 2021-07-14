@@ -144,6 +144,32 @@ static int _reset_owner(VhostServer* vhost_server, ServerMsg* msg)
     return 0;
 }
 
+static int __add_reg(VhostServer* vhost_server, VhostServerMemoryRegion *region,
+                     VhostUserMemoryRegion *reg, int fd)
+{
+    void *addr;
+    uint64_t size;
+
+    printf("size: %ld offset: %ld\n", reg->memory_size, reg->mmap_offset);
+
+    size = reg->memory_size + reg->mmap_offset;
+
+    addr = init_shm_from_fd(fd, size);
+    if (!addr)
+        exit(-1);
+
+    region->memory_size     = reg->memory_size;
+    region->guest_phys_addr = reg->guest_phys_addr;
+    region->userspace_addr  = reg->userspace_addr;
+
+    region->mmap_addr = (uintptr_t)addr;
+    region->mmap_addr += reg->mmap_offset;
+
+    vhost_server->memory.nregions++;
+
+    return 0;
+}
+
 static int _set_mem_table(VhostServer* vhost_server, ServerMsg* msg)
 {
     int idx;
@@ -152,22 +178,10 @@ static int _set_mem_table(VhostServer* vhost_server, ServerMsg* msg)
     vhost_server->memory.nregions = 0;
 
     for (idx = 0; idx < msg->msg.memory.nregions; idx++) {
-        if (msg->fds[idx] > 0) {
-            VhostServerMemoryRegion *region = &vhost_server->memory.regions[idx];
-
-            region->guest_phys_addr = msg->msg.memory.regions[idx].guest_phys_addr;
-            region->memory_size = msg->msg.memory.regions[idx].memory_size;
-            region->userspace_addr = msg->msg.memory.regions[idx].userspace_addr;
-
-            assert(idx < msg->fd_num);
-            assert(msg->fds[idx] > 0);
-
-            region->mmap_addr =
-                    (uintptr_t) init_shm_from_fd(msg->fds[idx], region->memory_size);
-            region->mmap_addr += msg->msg.memory.regions[idx].mmap_offset;
-
-            vhost_server->memory.nregions++;
-        }
+        __add_reg(vhost_server,
+                  &vhost_server->memory.regions[idx],
+                  &msg->msg.memory.regions[idx],
+                  msg->fds[idx]);
     }
 
     fprintf(stdout, "Got memory.nregions %d\n", vhost_server->memory.nregions);
