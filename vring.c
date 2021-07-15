@@ -16,12 +16,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/eventfd.h>
+#include <stdbool.h>
 
 #include "vring.h"
 #include "shm.h"
 #include "vhost_user.h"
 
 #define VRING_IDX_NONE          ((uint16_t)-1)
+bool drop_packet;
+extern bool dump_packet;
 
 static struct vhost_vring* new_vring(void* vring_base)
 {
@@ -220,7 +223,7 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
     uint32_t i, len = 0;
     size_t buf_size = ETH_PACKET_SIZE;
     uint8_t buf[buf_size];
-    struct virtio_net_hdr *hdr = 0;
+//    struct virtio_net_hdr *hdr = 0;
     size_t hdr_len = sizeof(struct virtio_net_hdr);
 
 #ifdef DUMP_PACKETS
@@ -233,21 +236,23 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
         void* cur = 0;
         uint32_t cur_len = desc[i].len;
 
-        // map the address
-        if (handler && handler->map_handler) {
-            cur = (void*)handler->map_handler(handler->context, desc[i].addr);
-        } else {
-            cur = (void*) (uintptr_t) desc[i].addr;
-        }
+        if (!drop_packet) {
+            // map the address
+            if (handler && handler->map_handler) {
+                cur = (void*)handler->map_handler(handler->context, desc[i].addr);
+            } else {
+                cur = (void*) (uintptr_t) desc[i].addr;
+            }
 
-        if (len + cur_len < buf_size) {
-            memcpy(buf + len, cur, cur_len);
+            if (len + cur_len < buf_size) {
+                memcpy(buf + len, cur, cur_len);
 #ifdef DUMP_PACKETS
-            if (dump_packet)
-                fprintf(stdout, "%d ", cur_len);
+                if (dump_packet)
+                    fprintf(stdout, "%d ", cur_len);
 #endif
-        } else {
-            break;
+            } else {
+                break;
+            }
         }
 
         len += cur_len;
@@ -267,19 +272,22 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
     used->ring[u_idx].id = d_idx;
     used->ring[u_idx].len = len;
 
+    if (drop_packet)
+        return 0;
+
 #ifdef DUMP_PACKETS
     if (dump_packet)
         fprintf(stdout, "\n");
 #endif
 
     // check the header
-    hdr = (struct virtio_net_hdr *)buf;
+//    hdr = (struct virtio_net_hdr *)buf;
 
-    if ((hdr->flags != 0) || (hdr->gso_type != 0) || (hdr->hdr_len != 0)
-         || (hdr->gso_size != 0) || (hdr->csum_start != 0)
-         || (hdr->csum_offset != 0)) {
-        fprintf(stderr, "wrong flags\n");
-    }
+//    if ((hdr->flags != 0) || (hdr->gso_type != 0) || (hdr->hdr_len != 0)
+//         || (hdr->gso_size != 0) || (hdr->csum_start != 0)
+//         || (hdr->csum_offset != 0)) {
+//        fprintf(stderr, "wrong flags\n");
+//    }
 
     // consume the packet
     if (handler && handler->avail_handler) {

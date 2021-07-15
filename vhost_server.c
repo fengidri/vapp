@@ -358,11 +358,9 @@ static int _poll_avail_vring(VhostServer* vhost_server, int idx)
     // if vring is already set, process the vring
     if (vhost_server->vring_table.vring[idx].desc) {
         count = process_avail_vring(&vhost_server->vring_table, idx);
-#ifndef DUMP_PACKETS
 
         update_stat(&vhost_server->stat, count);
         print_stat(&vhost_server->stat);
-#endif
     }
 
     return count;

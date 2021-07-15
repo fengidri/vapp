@@ -24,6 +24,7 @@ static void signal_handler(int);
 static void init_signals(void);
 static void cleanup(void);
 extern bool dump_packet;
+extern bool drop_packet;
 
 int main(int argc, char* argv[])
 {
@@ -35,7 +36,7 @@ int main(int argc, char* argv[])
     atexit(cleanup);
     init_signals();
 
-    while ((opt = getopt(argc, argv, "q:s:c:d")) != -1) {
+    while ((opt = getopt(argc, argv, "q:s:c:dp")) != -1) {
 
         switch (opt) {
         case 'q':
@@ -49,6 +50,9 @@ int main(int argc, char* argv[])
             break;
         case 'd':
             dump_packet = true;
+            break;
+        case 'p':
+            drop_packet = true;
             break;
         default:
             break;
@@ -68,6 +72,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "\t-s - act as slave server\n");
         fprintf(stderr, "\t-c - act as slave client\n");
         fprintf(stderr, "\t-d - dump packet\n");
+        fprintf(stderr, "\t-p - drop packet\n");
         exit(EXIT_FAILURE);
     }
 
