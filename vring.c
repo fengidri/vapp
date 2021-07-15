@@ -316,6 +316,7 @@ int process_avail_vring(VringTable* vring_table, uint32_t v_idx)
     }
 
     used->idx = vring_table->vring[v_idx].last_used_idx;
+    kick(vring_table, v_idx);
 
     return count;
 }
