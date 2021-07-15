@@ -324,9 +324,20 @@ int process_avail_vring(VringTable* vring_table, uint32_t v_idx)
     }
 
     used->idx = vring_table->vring[v_idx].last_used_idx;
-    kick(vring_table, v_idx);
+    call(vring_table, v_idx);
 
     return count;
+}
+
+int call(VringTable* vring_table, uint32_t v_idx)
+{
+    uint64_t call_it = 1;
+    int callfd = vring_table->vring[v_idx].callfd;
+
+    write(callfd, &call_it, sizeof(call_it));
+    fsync(callfd);
+
+    return 0;
 }
 
 int kick(VringTable* vring_table, uint32_t v_idx)
