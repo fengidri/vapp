@@ -216,7 +216,7 @@ int run_vhost_client(VhostClient* vhost_client)
     vhost_client_handlers.context = vhost_client;
     set_handler_client(vhost_client->client, &vhost_client_handlers);
 
-    start_stat(&vhost_client->stat);
+    //start_stat(&vhost_client->stat);
     loop_client(vhost_client->client);
     stop_stat(&vhost_client->stat);
 

@@ -59,7 +59,7 @@ VhostServer* new_vhost_server(const char* path, int is_listen)
 
     vhost_server->buffer_size = 0;
     vhost_server->is_polling = 0;
-    init_stat(&vhost_server->stat);
+    //init_stat(&vhost_server->stat);
 
     return vhost_server;
 }
@@ -360,7 +360,7 @@ static int _poll_avail_vring(VhostServer* vhost_server, int idx)
         count = process_avail_vring(&vhost_server->vring_table, idx);
 
         update_stat(&vhost_server->stat, count);
-        print_stat(&vhost_server->stat);
+        //print_stat(&vhost_server->stat);
     }
 
     return count;
@@ -525,14 +525,14 @@ int run_vhost_server(VhostServer* vhost_server)
     vhost_server_handlers.context = vhost_server;
     set_handler_server(vhost_server->server, &vhost_server_handlers);
 
-    start_stat(&vhost_server->stat);
+    start_stat(vhost_server);
 
     app_running = 1; // externally modified
     while (app_running) {
         loop_server(vhost_server->server);
     }
 
-    stop_stat(&vhost_server->stat);
+    //stop_stat(&vhost_server->stat);
 
     return 0;
 }

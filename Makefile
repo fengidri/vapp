@@ -1,4 +1,4 @@
-SOURCES=main.c common.c 
+SOURCES=main.c common.c
 SOURCES+=shm.c fd_list.c stat.c vring.c
 SOURCES+=server.c vhost_server.c
 SOURCES+=client.c vhost_client.c
@@ -12,7 +12,7 @@ HEADERS+=packet.h
 BIN=vhost
 CFLAGS += -Wall -Werror
 CFLAGS += -ggdb3 -O0
-LFLAGS = -lrt
+LFLAGS = -lrt -l pthread
 
 all: ${BIN}
 

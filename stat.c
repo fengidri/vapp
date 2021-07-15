@@ -10,7 +10,10 @@
 
 #include <inttypes.h>
 #include <stdio.h>
-
+#include <pthread.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include "vring.h"
 #include "stat.h"
 
 #define STAT_PRINT_INTERVAL (3) // in ms
@@ -23,9 +26,45 @@ int init_stat(Stat* stat)
     return 0;
 }
 
-int start_stat(Stat* stat)
+static void * stat_thread(void *p)
 {
-    clock_gettime(CLOCK_MONOTONIC, &stat->start);
+    VhostServer *vhost_server = p;
+    Stat* stat = &vhost_server->stat;
+    VringTable *ring_table = &vhost_server->vring_table;
+    Vring *tx_ring = &ring_table->vring[VHOST_CLIENT_VRING_IDX_TX];
+    struct vring_avail* tx_avail;
+    struct vring_used* tx_used;
+    uint64_t num;
+
+    while (true) {
+        sleep(1);
+
+        tx_avail = tx_ring->avail;
+        tx_used = tx_ring->used;
+
+        if (!tx_used) {
+            continue;
+        }
+
+        num = stat->count - stat->lcount;
+        stat->lcount = stat->count;
+        printf("xmit %ldpkt/s tx[avail: %u/%u used: %u/%u]\n",
+               num,
+               tx_ring->last_avail_idx,
+               tx_avail->idx,
+               tx_ring->last_used_idx,
+               tx_used->idx
+               );
+    }
+
+    return NULL;
+}
+
+
+int start_stat(VhostServer *vhost_server)
+{
+    pthread_t th;
+    pthread_create(&th, 0, stat_thread, vhost_server);
     return 0;
 }
 
@@ -48,14 +87,15 @@ int print_stat(Stat* stat)
 
     clock_gettime(CLOCK_MONOTONIC, &now);
 
-    diff = (now.tv_sec - stat->start.tv_sec)
-            + (now.tv_nsec - stat->start.tv_nsec) / 1000000000;
+    diff = (now.tv_sec - stat->last.tv_sec)
+            + (now.tv_nsec - stat->last.tv_nsec) / 1000000000;
 
-    if (diff > stat->diff) {
-        if (diff % STAT_PRINT_INTERVAL == 0) {
-            fprintf(stdout,"%10"PRId64"\r", stat->count / diff);fflush(stdout);
-        }
-        stat->diff = diff;
+    if (diff > 1) {
+        fprintf(stdout,"xmit: %"PRId64"pkt/s\r",
+                (stat->count - stat->lcount) / diff);
+        fflush(stdout);
+        stat->lcount = stat->count;
+        stat->last = now;
     }
 
     return 0;

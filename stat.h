@@ -16,14 +16,20 @@
 
 typedef struct {
     struct timespec start, stop;
+    struct timespec last;
     uint64_t diff;
     uint64_t count;
+    uint64_t lcount;
 } Stat;
 
 int init_stat(Stat* stat);
-int start_stat(Stat* stat);
 int update_stat(Stat* stat, uint32_t count);
 int stop_stat(Stat* stat);
 int print_stat(Stat* stat);
+
+struct VhostServer;
+
+#include "vhost_server.h"
+int start_stat(struct VhostServer *vhost_server);
 
 #endif /* STAT_H_ */
