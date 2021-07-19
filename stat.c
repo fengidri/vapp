@@ -16,6 +16,8 @@
 #include "vring.h"
 #include "stat.h"
 
+Stat stat;
+
 #define STAT_PRINT_INTERVAL (3) // in ms
 int init_stat(Stat* stat)
 {
@@ -29,12 +31,11 @@ int init_stat(Stat* stat)
 static void * stat_thread(void *p)
 {
     VhostServer *vhost_server = p;
-    Stat* stat = &vhost_server->stat;
     VringTable *ring_table = &vhost_server->vring_table;
     Vring *tx_ring = &ring_table->vring[VHOST_CLIENT_VRING_IDX_TX];
     struct vring_avail* tx_avail;
     struct vring_used* tx_used;
-    uint64_t num;
+    uint64_t num, n_call, n_call_skip;
 
     while (true) {
         sleep(1);
@@ -46,10 +47,18 @@ static void * stat_thread(void *p)
             continue;
         }
 
-        num = stat->count - stat->lcount;
-        stat->lcount = stat->count;
-        printf("xmit %ldpkt/s tx[avail: %u/%u used: %u/%u]\n",
+        num = stat.count - stat.lcount;
+        stat.lcount = stat.count;
+
+        n_call = stat.call_num - stat.lcall_num;
+        stat.lcall_num = stat.call_num;
+
+        n_call_skip = stat.call_skip_num - stat.lcall_skip_num;
+        stat.lcall_skip_num = stat.call_skip_num;
+
+        printf("xmit: %ldpkt/s call: %ld skip call: %ld tx[avail: %u/%u used: %u/%u]\n",
                num,
+               n_call, n_call_skip,
                tx_ring->last_avail_idx,
                tx_avail->idx,
                tx_ring->last_used_idx,

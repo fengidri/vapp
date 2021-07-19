@@ -20,6 +20,7 @@
 
 #include "vring.h"
 #include "shm.h"
+#include "stat.h"
 #include "vhost_user.h"
 
 #define VRING_IDX_NONE          ((uint16_t)-1)
@@ -334,8 +335,12 @@ int call(VringTable* vring_table, uint32_t v_idx)
     uint64_t call_it = 1;
     int callfd = vring_table->vring[v_idx].callfd;
 
-    if (vring_table->vring[v_idx].avail->flags & VRING_AVAIL_F_NO_INTERRUPT)
+    if (vring_table->vring[v_idx].avail->flags & VRING_AVAIL_F_NO_INTERRUPT) {
+        stat.call_skip_num += 1;
         return 0;
+    }
+
+    stat.call_num += 1;
 
     write(callfd, &call_it, sizeof(call_it));
     fsync(callfd);

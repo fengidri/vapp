@@ -359,8 +359,7 @@ static int _poll_avail_vring(VhostServer* vhost_server, int idx)
     if (vhost_server->vring_table.vring[idx].desc) {
         count = process_avail_vring(&vhost_server->vring_table, idx);
 
-        update_stat(&vhost_server->stat, count);
-        //print_stat(&vhost_server->stat);
+        stat.count += count;
     }
 
     return count;

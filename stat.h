@@ -20,7 +20,14 @@ typedef struct {
     uint64_t diff;
     uint64_t count;
     uint64_t lcount;
+
+    uint64_t call_num;
+    uint64_t call_skip_num;
+    uint64_t lcall_num;
+    uint64_t lcall_skip_num;
 } Stat;
+
+extern Stat stat;
 
 int init_stat(Stat* stat);
 int update_stat(Stat* stat, uint32_t count);

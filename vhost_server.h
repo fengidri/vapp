@@ -35,7 +35,6 @@ typedef struct VhostServer {
     int is_polling;
     uint8_t buffer[BUFFER_SIZE];
     uint32_t buffer_size;
-    Stat stat;
 } VhostServer;
 
 VhostServer* new_vhost_server(const char* path, int is_listen);
