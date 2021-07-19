@@ -334,6 +334,9 @@ int call(VringTable* vring_table, uint32_t v_idx)
     uint64_t call_it = 1;
     int callfd = vring_table->vring[v_idx].callfd;
 
+    if (vring_table->vring[v_idx].avail->flags & VRING_AVAIL_F_NO_INTERRUPT)
+        return 0;
+
     write(callfd, &call_it, sizeof(call_it));
     fsync(callfd);
 

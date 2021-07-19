@@ -29,6 +29,7 @@ struct vhost_vring_addr {
 
 };
 
+#define VRING_AVAIL_F_NO_INTERRUPT  1
 
 
 /* v1.0 compliant. */
