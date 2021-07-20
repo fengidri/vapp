@@ -21,8 +21,12 @@ typedef struct {
     uint64_t count;
     uint64_t lcount;
 
+    uint64_t kick_num;
+    uint64_t lkick_num;
+
     uint64_t call_num;
     uint64_t call_skip_num;
+
     uint64_t lcall_num;
     uint64_t lcall_skip_num;
 } Stat;
