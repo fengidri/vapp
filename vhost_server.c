@@ -146,6 +146,7 @@ static int _get_features(VhostServer* vhost_server, ServerMsg* msg)
 
 //    features |= 1UL << VIRTIO_F_VERSION_1;
     features |= 1UL << VHOST_USER_F_PROTOCOL_FEATURES;
+    features |= 1UL << VIRTIO_RING_F_EVENT_IDX;
 //    features |= 1UL << VIRTIO_F_IOMMU_PLATFORM;
 
     msg->msg.u64 = features;
@@ -159,6 +160,8 @@ static int _set_features(VhostServer* vhost_server, ServerMsg* msg)
 {
     fprintf(stdout, "%s\n", __FUNCTION__);
     printf("set feature: iommu: %lu\n", msg->msg.u64 & (1UL << VIRTIO_F_IOMMU_PLATFORM));
+    printf("set feature: event: %lu\n", msg->msg.u64 & (1UL << VIRTIO_RING_F_EVENT_IDX));
+    vhost_server->vring_table.features = msg->msg.u64;
     return 0;
 }
 
@@ -311,6 +314,9 @@ static int _set_vring_base(VhostServer* vhost_server, ServerMsg* msg)
     assert(idx<VHOST_CLIENT_VRING_NUM);
 
     vhost_server->vring_table.vring[idx].last_avail_idx = msg->msg.state.num;
+    vhost_server->vring_table.vring[idx].last_used_idx = msg->msg.state.num;
+
+    printf("ring idx: %d idx: %d\n", idx, msg->msg.state.num);
 
     return 0;
 }
@@ -360,6 +366,7 @@ static int _poll_avail_vring(VhostServer* vhost_server, int idx)
         count = process_avail_vring(&vhost_server->vring_table, idx);
 
         stat.count += count;
+        stat.kick_num += 1;
     }
 
     return count;

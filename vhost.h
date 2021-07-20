@@ -15,6 +15,13 @@ enum {
     VHOST_MEMORY_MAX_NREGIONS = 128
 };
 
+#define MAX_PKT_BURST 32
+
+
+#define mb()		__asm__ __volatile__ ("": : :"memory")
+#define rmb()		mb()
+#define wmb()		__asm__ __volatile__ ("": : :"memory")
+
 // Structures imported from the Linux headers.
 struct vhost_vring_state { unsigned int index, num; };
 struct vhost_vring_file { unsigned int index; int fd; };
@@ -31,6 +38,7 @@ struct vhost_vring_addr {
 
 #define VRING_AVAIL_F_NO_INTERRUPT  1
 
+#define VIRTIO_RING_F_EVENT_IDX		29
 
 /* v1.0 compliant. */
 #define VIRTIO_F_VERSION_1		32

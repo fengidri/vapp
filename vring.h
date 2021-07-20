@@ -76,7 +76,16 @@ typedef struct {
   unsigned int num;
   uint16_t last_avail_idx;
   uint16_t last_used_idx;
+
+  uint16_t signalled_used;
+  uint16_t signalled_used_valid;
+
 } Vring;
+
+#define vhost_avail_event(vr) \
+	(*(volatile uint16_t*)&(vr)->used->ring[(vr)->num])
+#define vhost_used_event(vr) \
+	(*(volatile uint16_t*)&(vr)->avail->ring[(vr)->num])
 
 struct VhostUserMemory;
 
@@ -96,6 +105,7 @@ int set_host_vring_table(struct vhost_vring* vring_table[], size_t vring_table_n
 typedef struct {
     ProcessHandler handler;
     Vring vring[VHOST_CLIENT_VRING_NUM];
+    uint64_t features;
 } VringTable;
 
 int put_vring(VringTable* vring_table, uint32_t v_idx, void* buf, size_t size);

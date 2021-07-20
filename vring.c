@@ -214,10 +214,11 @@ int process_used_vring(VringTable* vring_table, uint32_t v_idx)
 
 static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
 {
-    struct vring_desc* desc = vring_table->vring[v_idx].desc;
+    struct vring_desc*  desc  = vring_table->vring[v_idx].desc;
     struct vring_avail* avail = vring_table->vring[v_idx].avail;
-    struct vring_used* used = vring_table->vring[v_idx].used;
-    unsigned int num = vring_table->vring[v_idx].num;
+    struct vring_used*  used  = vring_table->vring[v_idx].used;
+    unsigned int        num   = vring_table->vring[v_idx].num;
+
     ProcessHandler* handler = &vring_table->handler;
     uint16_t u_idx = vring_table->vring[v_idx].last_used_idx % num;
     uint16_t d_idx = avail->ring[a_idx];
@@ -303,47 +304,105 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
 
 int process_avail_vring(VringTable* vring_table, uint32_t v_idx)
 {
-    struct vring_avail* avail = vring_table->vring[v_idx].avail;
-    struct vring_used* used = vring_table->vring[v_idx].used;
-    unsigned int num = vring_table->vring[v_idx].num;
-
+    Vring *vq;
+    struct vring_avail* avail;
+    struct vring_used* used;
+    unsigned int num;
     uint32_t count = 0;
-    uint16_t a_idx = vring_table->vring[v_idx].last_avail_idx % num;
+    uint16_t a_idx;
+
+    vq = &vring_table->vring[v_idx];
+
+    avail = vq->avail;
+    used  = vq->used;
+    num   = vq->num;
+
+    a_idx = vq->last_avail_idx % num;
 
     // Loop all avail descriptors
     for (;;) {
         /* we reached the end of avail */
-        if (vring_table->vring[v_idx].last_avail_idx == avail->idx) {
+        if (vq->last_avail_idx == avail->idx) {
             break;
         }
 
         process_desc(vring_table, v_idx, a_idx);
+
         a_idx = (a_idx + 1) % num;
-        vring_table->vring[v_idx].last_avail_idx++;
-        vring_table->vring[v_idx].last_used_idx++;
+
+        vq->last_avail_idx++;
+        vq->last_used_idx++;
         count++;
+
+        if (count % MAX_PKT_BURST == 0) {
+call:
+            mb();
+
+            vhost_avail_event(vq) = vq->last_avail_idx;
+
+            used->idx = vq->last_used_idx;
+            mb();
+            call(vring_table, v_idx);
+        }
     }
 
-    used->idx = vring_table->vring[v_idx].last_used_idx;
-    call(vring_table, v_idx);
+    if (count % MAX_PKT_BURST)
+        goto call;
 
     return count;
 }
 
-int call(VringTable* vring_table, uint32_t v_idx)
+/*
+ * The following is used with VIRTIO_RING_F_EVENT_IDX.
+ * Assuming a given event_idx value from the other size, if we have
+ * just incremented index from old to new_idx, should we trigger an
+ * event?
+ */
+static int
+vhost_need_event(uint16_t event_idx, uint16_t new_idx, uint16_t old)
+{
+	return (uint16_t)(new_idx - event_idx - 1) < (uint16_t)(new_idx - old);
+}
+
+static void
+vhost_vring_call_split(Vring *vq, uint64_t features)
 {
     uint64_t call_it = 1;
-    int callfd = vring_table->vring[v_idx].callfd;
 
-    if (vring_table->vring[v_idx].avail->flags & VRING_AVAIL_F_NO_INTERRUPT) {
-        stat.call_skip_num += 1;
-        return 0;
-    }
+    mb();
+	/* Flush used->idx update before we read avail->flags. */
+	//rte_smp_mb();
 
+	/* Don't kick guest if we don't reach index specified by guest. */
+	if (features & (1ULL << VIRTIO_RING_F_EVENT_IDX)) {
+		uint16_t old = vq->signalled_used;
+		uint16_t new = vq->last_used_idx;
+		bool signalled_used_valid = vq->signalled_used_valid;
+
+		vq->signalled_used = new;
+		vq->signalled_used_valid = true;
+
+		if (vhost_need_event(vhost_used_event(vq), new, old) || !signalled_used_valid)
+            goto call;
+
+	} else {
+		/* Kick the guest if necessary. */
+		if (!(vq->avail->flags & VRING_AVAIL_F_NO_INTERRUPT))
+            goto call;
+	}
+
+    stat.call_skip_num += 1;
+    return;
+call:
     stat.call_num += 1;
+    write(vq->callfd, &call_it, sizeof(call_it));
+    fsync(vq->callfd);
+}
 
-    write(callfd, &call_it, sizeof(call_it));
-    fsync(callfd);
+int call(VringTable* vring_table, uint32_t v_idx)
+{
+
+    vhost_vring_call_split(&vring_table->vring[v_idx], vring_table->features);
 
     return 0;
 }
