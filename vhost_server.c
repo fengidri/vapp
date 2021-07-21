@@ -14,6 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #include "fd_list.h"
 #include "shm.h"
@@ -21,6 +22,7 @@
 #include "vring.h"
 
 bool dump_packet;
+bool busy_mode;
 
 typedef int (*MsgHandler)(VhostServer* vhost_server, ServerMsg* msg);
 
@@ -146,7 +148,7 @@ static int _get_features(VhostServer* vhost_server, ServerMsg* msg)
 
 //    features |= 1UL << VIRTIO_F_VERSION_1;
     features |= 1UL << VHOST_USER_F_PROTOCOL_FEATURES;
-    features |= 1UL << VIRTIO_RING_F_EVENT_IDX;
+//    features |= 1UL << VIRTIO_RING_F_EVENT_IDX;
 //    features |= 1UL << VIRTIO_F_IOMMU_PLATFORM;
 
     msg->msg.u64 = features;
@@ -396,6 +398,29 @@ static int _kick_server(FdNode* node)
     return 0;
 }
 
+static void *busy_mode_cycle(void *p)
+{
+    VhostServer* vhost_server = p;
+
+    process_avail_vring_busy(&vhost_server->vring_table,
+                             VHOST_CLIENT_VRING_IDX_TX);
+
+    return NULL;
+}
+
+
+static int _vring_enable(VhostServer* vhost_server, ServerMsg* msg)
+{
+    int idx = msg->msg.u64 & VHOST_USER_VRING_IDX_MASK;
+    pthread_t th;
+
+    if (idx == VHOST_CLIENT_VRING_IDX_TX && busy_mode) {
+        pthread_create(&th, 0, busy_mode_cycle, vhost_server);
+    }
+
+    return 0;
+}
+
 static int _set_vring_kick(VhostServer* vhost_server, ServerMsg* msg)
 {
     fprintf(stdout, "%s\n", __FUNCTION__);
@@ -411,7 +436,7 @@ static int _set_vring_kick(VhostServer* vhost_server, ServerMsg* msg)
 
         fprintf(stdout, "Got kickfd 0x%x\n", vhost_server->vring_table.vring[idx].kickfd);
 
-        if (idx == VHOST_CLIENT_VRING_IDX_TX) {
+        if (idx == VHOST_CLIENT_VRING_IDX_TX && !busy_mode) {
             add_fd_list(&vhost_server->server->fd_list, FD_READ,
                     vhost_server->vring_table.vring[idx].kickfd,
                     (void*) vhost_server, _kick_server);
@@ -470,6 +495,7 @@ static MsgHandler msg_handlers[VHOST_USER_MAX] = {
         _get_prot_features, // VHOST_USER_GET_PROTOCOL_FEATURES
         [VHOST_USER_GET_MAX_MEM_SLOTS] = _get_mem_slots,
         [VHOST_USER_ADD_MEM_REG] = _add_mem_reg,
+        [VHOST_USER_SET_VRING_ENABLE] = _vring_enable,
         };
 
 static int in_msg_server(void* context, ServerMsg* msg)

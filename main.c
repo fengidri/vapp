@@ -25,6 +25,7 @@ static void init_signals(void);
 static void cleanup(void);
 extern bool dump_packet;
 extern bool drop_packet;
+extern bool busy_mode;
 
 int main(int argc, char* argv[])
 {
@@ -36,7 +37,7 @@ int main(int argc, char* argv[])
     atexit(cleanup);
     init_signals();
 
-    while ((opt = getopt(argc, argv, "q:s:c:dp")) != -1) {
+    while ((opt = getopt(argc, argv, "q:s:c:dpb")) != -1) {
 
         switch (opt) {
         case 'q':
@@ -50,6 +51,9 @@ int main(int argc, char* argv[])
             break;
         case 'd':
             dump_packet = true;
+            break;
+        case 'b':
+            busy_mode = true;
             break;
         case 'p':
             drop_packet = true;

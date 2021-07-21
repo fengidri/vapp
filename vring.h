@@ -111,6 +111,7 @@ typedef struct {
 int put_vring(VringTable* vring_table, uint32_t v_idx, void* buf, size_t size);
 int process_used_vring(VringTable* vring_table, uint32_t v_idx);
 int process_avail_vring(VringTable* vring_table, uint32_t v_idx);
+int process_avail_vring_busy(VringTable* vring_table, uint32_t v_idx);
 
 int kick(VringTable* vring_table, uint32_t v_idx);
 int call(VringTable* vring_table, uint32_t v_idx);

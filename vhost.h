@@ -15,7 +15,7 @@ enum {
     VHOST_MEMORY_MAX_NREGIONS = 128
 };
 
-#define MAX_PKT_BURST 32
+#define MAX_PKT_BURST 64
 
 
 #define mb()		__asm__ __volatile__ ("": : :"memory")
@@ -36,6 +36,7 @@ struct vhost_vring_addr {
 
 };
 
+#define VRING_USED_F_NO_NOTIFY	1
 #define VRING_AVAIL_F_NO_INTERRUPT  1
 
 #define VIRTIO_RING_F_EVENT_IDX		29

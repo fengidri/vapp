@@ -226,12 +226,7 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
     size_t buf_size = ETH_PACKET_SIZE;
     uint8_t buf[buf_size];
 //    struct virtio_net_hdr *hdr = 0;
-    size_t hdr_len = sizeof(struct virtio_net_hdr);
-
-#ifdef DUMP_PACKETS
-    if (dump_packet)
-        fprintf(stdout, "chunks: ");
-#endif
+//    size_t hdr_len = sizeof(struct virtio_net_hdr);
 
     i=d_idx;
     for (;;) {
@@ -248,10 +243,6 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
 
             if (len + cur_len < buf_size) {
                 memcpy(buf + len, cur, cur_len);
-#ifdef DUMP_PACKETS
-                if (dump_packet)
-                    fprintf(stdout, "%d ", cur_len);
-#endif
             } else {
                 break;
             }
@@ -273,31 +264,61 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
     // add it to the used ring
     used->ring[u_idx].id = d_idx;
     used->ring[u_idx].len = len;
+    return 0;
+}
 
-    if (drop_packet)
-        return 0;
+static int __process_avail_vring_busy(VringTable* vring_table, uint32_t v_idx)
+{
+    Vring *vq;
+    struct vring_avail* avail;
+    struct vring_used* used;
+    unsigned int num;
+    uint32_t count = 0;
+    uint16_t a_idx;
 
-#ifdef DUMP_PACKETS
-    if (dump_packet)
-        fprintf(stdout, "\n");
-#endif
+    vq = &vring_table->vring[v_idx];
 
-    // check the header
-//    hdr = (struct virtio_net_hdr *)buf;
+    avail = vq->avail;
+    used  = vq->used;
+    num   = vq->num;
 
-//    if ((hdr->flags != 0) || (hdr->gso_type != 0) || (hdr->hdr_len != 0)
-//         || (hdr->gso_size != 0) || (hdr->csum_start != 0)
-//         || (hdr->csum_offset != 0)) {
-//        fprintf(stderr, "wrong flags\n");
-//    }
+    a_idx = vq->last_avail_idx % num;
 
-    // consume the packet
-    if (handler && handler->avail_handler) {
-        if (handler->avail_handler(handler->context, buf + hdr_len, len - hdr_len) != 0) {
-            // error handling current packet
-            // TODO: we basically drop it here
-        }
+    for (count = 0; count < MAX_PKT_BURST; ) {
+        if (vq->last_avail_idx == avail->idx)
+            break;
+
+        process_desc(vring_table, v_idx, a_idx);
+
+        a_idx = (a_idx + 1) % num;
+
+        vq->last_avail_idx++;
+        vq->last_used_idx++;
+        count++;
     }
+
+    if (count) {
+        used->idx = vq->last_used_idx;
+        mb();
+        call(vring_table, v_idx);
+
+        stat.count += count;
+    } else {
+        stat.idle += 1;
+    }
+
+    return count;
+}
+
+int process_avail_vring_busy(VringTable* vring_table, uint32_t v_idx)
+{
+    Vring *vq;
+
+    vq = &vring_table->vring[v_idx];
+    vq->used->flags = VRING_USED_F_NO_NOTIFY;
+
+    while (true)
+        __process_avail_vring_busy(vring_table, v_idx);
 
     return 0;
 }
@@ -377,13 +398,16 @@ vhost_vring_call_split(Vring *vq, uint64_t features)
 	if (features & (1ULL << VIRTIO_RING_F_EVENT_IDX)) {
 		uint16_t old = vq->signalled_used;
 		uint16_t new = vq->last_used_idx;
+		uint16_t eid;
 		bool signalled_used_valid = vq->signalled_used_valid;
 
 		vq->signalled_used = new;
 		vq->signalled_used_valid = true;
 
-		if (vhost_need_event(vhost_used_event(vq), new, old) || !signalled_used_valid)
+        eid = vhost_used_event(vq);
+		if (vhost_need_event(eid, new, old) || !signalled_used_valid) {
             goto call;
+        }
 
 	} else {
 		/* Kick the guest if necessary. */

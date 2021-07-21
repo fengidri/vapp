@@ -35,7 +35,12 @@ static void * stat_thread(void *p)
     Vring *tx_ring = &ring_table->vring[VHOST_CLIENT_VRING_IDX_TX];
     struct vring_avail* tx_avail;
     struct vring_used* tx_used;
-    uint64_t num, n_call, n_call_skip, n_kick;
+    Stat t;
+
+#define s_diff(n) \
+    t.n = stat.n - stat.l##n; \
+    stat.l##n = stat.n;
+
 
     while (true) {
         sleep(1);
@@ -47,22 +52,18 @@ static void * stat_thread(void *p)
             continue;
         }
 
-        num = stat.count - stat.lcount;
-        stat.lcount = stat.count;
+        s_diff(count);
+        s_diff(kick_num);
+        s_diff(call_num);
+        s_diff(call_skip_num);
+        s_diff(idle);
 
-        n_kick = stat.kick_num - stat.lkick_num;
-        stat.lkick_num = stat.kick_num;
-
-        n_call = stat.call_num - stat.lcall_num;
-        stat.lcall_num = stat.call_num;
-
-        n_call_skip = stat.call_skip_num - stat.lcall_skip_num;
-        stat.lcall_skip_num = stat.call_skip_num;
-
-        printf("xmit: %ldpkt/s kick: %ld call: %ld skip call: %ld tx[avail: %u/%u used: %u/%u]\n",
-               num,
-               n_kick,
-               n_call, n_call_skip,
+        printf("idel: %lu tx: %ld kick: %ld call: %ld skip call: %ld tx[avail: %u/%u used: %u/%u]\n",
+               t.idle,
+               t.count,
+               t.kick_num,
+               t.call_num,
+               t.call_skip_num,
                tx_ring->last_avail_idx,
                tx_avail->idx,
                tx_ring->last_used_idx,

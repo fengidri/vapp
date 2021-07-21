@@ -29,6 +29,10 @@ typedef struct {
 
     uint64_t lcall_num;
     uint64_t lcall_skip_num;
+
+    uint64_t idle;
+    uint64_t lidle;
+
 } Stat;
 
 extern Stat stat;
