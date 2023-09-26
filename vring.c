@@ -315,6 +315,10 @@ int process_avail_vring_busy(VringTable* vring_table, uint32_t v_idx)
     Vring *vq;
 
     vq = &vring_table->vring[v_idx];
+
+    if (!vq->desc)
+        return 0;
+
     vq->used->flags = VRING_USED_F_NO_NOTIFY;
 
     while (true)
@@ -356,7 +360,6 @@ int process_avail_vring(VringTable* vring_table, uint32_t v_idx)
         count++;
 
         if (count % MAX_PKT_BURST == 0) {
-call:
             mb();
 
             vhost_avail_event(vq) = vq->last_avail_idx;
@@ -367,8 +370,15 @@ call:
         }
     }
 
-    if (count % MAX_PKT_BURST)
-        goto call;
+    if (count % MAX_PKT_BURST) {
+        mb();
+
+        vhost_avail_event(vq) = vq->last_avail_idx;
+
+        used->idx = vq->last_used_idx;
+        mb();
+        call(vring_table, v_idx);
+    }
 
     return count;
 }

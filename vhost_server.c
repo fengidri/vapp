@@ -146,9 +146,9 @@ static int _get_features(VhostServer* vhost_server, ServerMsg* msg)
     fprintf(stdout, "%s\n", __FUNCTION__);
     uint64_t features = 0;
 
-//    features |= 1UL << VIRTIO_F_VERSION_1;
+    features |= 1UL << VIRTIO_F_VERSION_1;
     features |= 1UL << VHOST_USER_F_PROTOCOL_FEATURES;
-//    features |= 1UL << VIRTIO_RING_F_EVENT_IDX;
+    features |= 1UL << VIRTIO_RING_F_EVENT_IDX;
 //    features |= 1UL << VIRTIO_F_IOMMU_PLATFORM;
 
     msg->msg.u64 = features;
@@ -524,7 +524,7 @@ static int poll_server(void* context)
 
     if (vhost_server->vring_table.vring[rx_idx].desc) {
         // process TX ring
-        if (vhost_server->is_polling) {
+        if (vhost_server->is_polling && !busy_mode) {
             _poll_avail_vring(vhost_server, tx_idx);
         }
 

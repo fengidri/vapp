@@ -107,8 +107,8 @@ const char* cmd_from_vhostmsg(const VhostUserMsg* msg)
 void dump_vhostmsg(const VhostUserMsg* msg)
 {
     int i = 0;
-    fprintf(stdout, "Cmd: %s (0x%x)\n", cmd_from_vhostmsg(msg), msg->request);
-    fprintf(stdout, "Flags: 0x%x\n", msg->flags);
+    fprintf(stdout, "Cmd: %s (0x%x) Flags: 0x%x\n", cmd_from_vhostmsg(msg),
+            msg->request, msg->flags);
 
     // command specific `dumps`
     switch (msg->request) {

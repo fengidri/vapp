@@ -11,7 +11,7 @@ HEADERS+=packet.h
 
 BIN=vhost
 CFLAGS += -Wall -Werror
-CFLAGS += -ggdb3 -O0
+CFLAGS += -ggdb3 -O0 -Wno-address-of-packed-member
 LFLAGS = -lrt -l pthread
 
 all: ${BIN}
