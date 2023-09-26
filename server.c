@@ -119,8 +119,6 @@ static int receive_sock_server(FdNode* node)
     msg.fd_num = sizeof(msg.fds)/sizeof(int);
 
     r = vhost_user_recv_fds(sock, &msg.msg, msg.fds, &msg.fd_num);
-    printf("\n");
-    printf("===================== recv msg %d\n", r);
     if (r < 0) {
         perror("recv");
         status = ServerSockError;
@@ -131,9 +129,6 @@ static int receive_sock_server(FdNode* node)
     }
 
     if (status == ServerSockAccept) {
-#ifdef DUMP_PACKETS
-        dump_vhostmsg(&msg.msg);
-#endif
         r = 0;
         // Handle the packet to the registered server backend
         if (server->handlers.in_handler) {
@@ -153,7 +148,8 @@ static int receive_sock_server(FdNode* node)
             // in_handler will tell us if we need to reply
             if (r > 0) {
                 /* Set the version in the flags when sending the reply */
-                msg.msg.flags &= ~VHOST_USER_VERSION_MASK;
+                //msg.msg.flags &= ~VHOST_USER_VERSION_MASK;
+                msg.msg.flags = 0;
                 msg.msg.flags |= VHOST_USER_VERSION;
                 msg.msg.flags |= VHOST_USER_REPLY_MASK;
                 printf("reply msg\n");
@@ -163,7 +159,7 @@ static int receive_sock_server(FdNode* node)
                 }
             }
         }
-
+        printf("\n");
     }
 
     return status;

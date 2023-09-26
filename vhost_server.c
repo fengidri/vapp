@@ -120,12 +120,42 @@ static uintptr_t _map_user_addr(VhostServer* vhost_server, uint64_t addr)
     return result;
 }
 
+static int _set_prot_features(VhostServer* vhost_server, ServerMsg* msg)
+{
+    fprintf(stdout, "%s\n", __FUNCTION__);
+
+    printf("set features: %lu\n", msg->msg.u64);
+    vhost_server->prot_features = msg->msg.u64;
+
+    return 0;
+}
+
 static int _get_prot_features(VhostServer* vhost_server, ServerMsg* msg)
 {
     fprintf(stdout, "%s\n", __FUNCTION__);
 
-    msg->msg.u64 = 1UL << VHOST_USER_PROTOCOL_F_CONFIGURE_MEM_SLOTS;
+    // dpdk not use this. this will call VHOST_USER_ADD_MEM_REG...
+    //msg->msg.u64 = 1UL << VHOST_USER_PROTOCOL_F_CONFIGURE_MEM_SLOTS;
+    msg->msg.u64 = 0;
+    msg->msg.u64 |= 1UL << VHOST_USER_PROTOCOL_F_REPLY_ACK;
+    msg->msg.u64 |= 1UL << VHOST_USER_PROTOCOL_F_SLAVE_REQ;
+    //msg->msg.u64 |= 1UL << VHOST_USER_PROTOCOL_F_PAGEFAULT;
+
+    printf("get flags: %u\n", msg->msg.flags);
+
     printf("get feature: %ld\n", msg->msg.u64);
+    msg->msg.size = MEMB_SIZE(VhostUserMsg,u64);
+
+    return 1; // should reply back
+}
+
+static int _set_slave_req_fd(VhostServer* vhost_server, ServerMsg* msg)
+{
+    fprintf(stdout, "%s\n", __FUNCTION__);
+
+    printf("get flags: %u\n", msg->msg.flags);
+
+    msg->msg.u64 = 0;
     msg->msg.size = MEMB_SIZE(VhostUserMsg,u64);
 
     return 1; // should reply back
@@ -149,7 +179,7 @@ static int _get_features(VhostServer* vhost_server, ServerMsg* msg)
     features |= 1UL << VIRTIO_F_VERSION_1;
     features |= 1UL << VHOST_USER_F_PROTOCOL_FEATURES;
     features |= 1UL << VIRTIO_RING_F_EVENT_IDX;
-//    features |= 1UL << VIRTIO_F_IOMMU_PLATFORM;
+    features |= 1UL << VIRTIO_F_IOMMU_PLATFORM;
 
     msg->msg.u64 = features;
     msg->msg.size = MEMB_SIZE(VhostUserMsg,u64);
@@ -161,6 +191,17 @@ static int _get_features(VhostServer* vhost_server, ServerMsg* msg)
 static int _set_features(VhostServer* vhost_server, ServerMsg* msg)
 {
     fprintf(stdout, "%s\n", __FUNCTION__);
+
+    /*
+     * For vhost, VIRTIO_F_IOMMU_PLATFORM means the backend support
+     * incremental memory mapping API via IOTLB API. For platform that
+     * does not have IOMMU, there's no need to enable this feature
+     * which may cause unnecessary IOTLB miss/update transactions.
+     *
+     * So, we support VIRTIO_F_IOMMU_PLATFORM, then the guest will has it. But
+     * the device may is without iommu device, so the vhost the VIRTIO_F_IOMMU_PLATFORM
+     * will be closed.
+     */
     printf("set feature: iommu: %lu\n", msg->msg.u64 & (1UL << VIRTIO_F_IOMMU_PLATFORM));
     printf("set feature: event: %lu\n", msg->msg.u64 & (1UL << VIRTIO_RING_F_EVENT_IDX));
     vhost_server->vring_table.features = msg->msg.u64;
@@ -238,6 +279,11 @@ static int _set_mem_table(VhostServer* vhost_server, ServerMsg* msg)
     }
 
     fprintf(stdout, "Got memory.nregions %d\n", vhost_server->memory.nregions);
+
+    if (vhost_server->prot_features & (1UL << VHOST_USER_PROTOCOL_F_REPLY_ACK)) {
+        msg->msg.u64 = 0;
+        return 1; // reply
+    }
 
     return 0;
 }
@@ -493,9 +539,11 @@ static MsgHandler msg_handlers[VHOST_USER_MAX] = {
         _set_vring_call,    // VHOST_USER_SET_VRING_CALL
         _set_vring_err,     // VHOST_USER_SET_VRING_ERR
         _get_prot_features, // VHOST_USER_GET_PROTOCOL_FEATURES
+        _set_prot_features, // VHOST_USER_GET_PROTOCOL_FEATURES
         [VHOST_USER_GET_MAX_MEM_SLOTS] = _get_mem_slots,
         [VHOST_USER_ADD_MEM_REG] = _add_mem_reg,
         [VHOST_USER_SET_VRING_ENABLE] = _vring_enable,
+        [VHOST_USER_SET_SLAVE_REQ_FD] = _set_slave_req_fd,
         };
 
 static int in_msg_server(void* context, ServerMsg* msg)
