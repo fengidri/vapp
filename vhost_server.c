@@ -180,6 +180,7 @@ static int _get_features(VhostServer* vhost_server, ServerMsg* msg)
     features |= 1UL << VHOST_USER_F_PROTOCOL_FEATURES;
     features |= 1UL << VIRTIO_RING_F_EVENT_IDX;
     features |= 1UL << VIRTIO_F_IOMMU_PLATFORM;
+    features |= 1UL << VIRTIO_F_RING_RESET;
 
     msg->msg.u64 = features;
     msg->msg.size = MEMB_SIZE(VhostUserMsg,u64);
@@ -322,7 +323,7 @@ static int _set_vring_addr(VhostServer* vhost_server, ServerMsg* msg)
 
     assert(idx<VHOST_CLIENT_VRING_NUM);
 
-    printf("avail: %p %p %p\n", (void *)msg->msg.addr.desc_user_addr,
+    printf("addrs: %p %p %p\n", (void *)msg->msg.addr.desc_user_addr,
                                 (void *)msg->msg.addr.avail_user_addr,
                                 (void *)msg->msg.addr.used_user_addr);
 
@@ -349,6 +350,7 @@ static int _set_vring_addr(VhostServer* vhost_server, ServerMsg* msg)
 
     vhost_server->vring_table.vring[idx].last_used_idx =
             vhost_server->vring_table.vring[idx].used->idx;
+    printf("last_used_idx: %u\n", vhost_server->vring_table.vring[idx].last_used_idx);
 
     return 0;
 }
@@ -374,11 +376,26 @@ static int _get_vring_base(VhostServer* vhost_server, ServerMsg* msg)
     fprintf(stdout, "%s\n", __FUNCTION__);
 
     int idx = msg->msg.state.index;
+    Vring *vq;
 
     assert(idx<VHOST_CLIENT_VRING_NUM);
 
     msg->msg.state.num = vhost_server->vring_table.vring[idx].last_avail_idx;
     msg->msg.size = MEMB_SIZE(VhostUserMsg,state);
+
+
+    vq = &vhost_server->vring_table.vring[idx];
+
+    if (idx == VHOST_CLIENT_VRING_IDX_TX && vq->enabled) {
+        vq->reset = true;
+        vq->polling = false;
+        while (true) {
+            mb();
+
+            if (vq->tx_stopped)
+                break;
+        }
+    }
 
     return 1; // should reply back
 }
@@ -459,6 +476,11 @@ static int _vring_enable(VhostServer* vhost_server, ServerMsg* msg)
 {
     int idx = msg->msg.u64 & VHOST_USER_VRING_IDX_MASK;
     pthread_t th;
+    Vring *vq;
+
+    vq = &vhost_server->vring_table.vring[idx];
+    if (vq->desc)
+        vq->enabled = true;
 
     if (idx == VHOST_CLIENT_VRING_IDX_TX && busy_mode) {
         pthread_create(&th, 0, busy_mode_cycle, vhost_server);
@@ -503,6 +525,7 @@ static int _set_vring_call(VhostServer* vhost_server, ServerMsg* msg)
 
     int idx = msg->msg.u64 & VHOST_USER_VRING_IDX_MASK;
     int validfd = (msg->msg.u64 & VHOST_USER_VRING_NOFD_MASK) == 0;
+    Vring *vq;
 
     assert(idx<VHOST_CLIENT_VRING_NUM);
     if (validfd) {
@@ -511,6 +534,17 @@ static int _set_vring_call(VhostServer* vhost_server, ServerMsg* msg)
         vhost_server->vring_table.vring[idx].callfd = msg->fds[0];
 
         fprintf(stdout, "Got callfd 0x%x\n", vhost_server->vring_table.vring[idx].callfd);
+    }
+
+    vq = &vhost_server->vring_table.vring[idx];
+
+    if (vq->reset) {
+        vq->reset = false;
+
+        if (idx == VHOST_CLIENT_VRING_IDX_TX && busy_mode) {
+            pthread_t th;
+            pthread_create(&th, 0, busy_mode_cycle, vhost_server);
+        }
     }
 
     return 0;
@@ -551,7 +585,9 @@ static int in_msg_server(void* context, ServerMsg* msg)
     VhostServer* vhost_server = (VhostServer*) context;
     int result = 0;
 
-    fprintf(stdout, "Processing message: %s\n", cmd_from_vhostmsg(&msg->msg));
+    fprintf(stdout, "Processing message: %s idx: %d\n",
+            cmd_from_vhostmsg(&msg->msg),
+            msg->msg.state.index);
 
     assert(msg->msg.request > VHOST_USER_NONE && msg->msg.request < VHOST_USER_MAX);
 

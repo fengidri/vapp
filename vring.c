@@ -321,8 +321,17 @@ int process_avail_vring_busy(VringTable* vring_table, uint32_t v_idx)
 
     vq->used->flags = VRING_USED_F_NO_NOTIFY;
 
-    while (true)
+    vq->polling = true;
+    vq->tx_stopped = false;
+
+    printf("=== start tx polling\n");
+
+    while (vq->polling)
         __process_avail_vring_busy(vring_table, v_idx);
+
+    mb();
+    vq->tx_stopped = true;
+    printf("=== exit tx polling\n");
 
     return 0;
 }

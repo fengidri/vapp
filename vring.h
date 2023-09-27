@@ -11,6 +11,7 @@
 #ifndef VRING_H_
 #define VRING_H_
 
+#include <stdbool.h>
 #include "client.h"
 
 // Number of vring structures used in Linux vhost. Max 32768.
@@ -79,6 +80,13 @@ typedef struct {
 
   uint16_t signalled_used;
   uint16_t signalled_used_valid;
+
+  bool polling;
+  bool tx_stopped;
+
+  bool enabled;
+  bool reset;
+
 
 } Vring;
 

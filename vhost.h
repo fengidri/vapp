@@ -48,6 +48,11 @@ struct vhost_vring_addr {
 /* Legacy name for VIRTIO_F_ACCESS_PLATFORM (for compatibility with old userspace) */
 #define VIRTIO_F_IOMMU_PLATFORM		VIRTIO_F_ACCESS_PLATFORM
 
+/*
+ * This feature indicates that the driver can reset a queue individually.
+ */
+#define VIRTIO_F_RING_RESET		40
+
 struct virtio_net_hdr
 {
 #define VIRTIO_NET_HDR_F_NEEDS_CSUM     1       // Use csum_start, csum_offset
