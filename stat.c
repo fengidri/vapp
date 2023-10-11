@@ -17,6 +17,7 @@
 #include "stat.h"
 
 Stat stat;
+Stat rx_stat;
 
 #define STAT_PRINT_INTERVAL (3) // in ms
 int init_stat(Stat* stat)
@@ -28,47 +29,70 @@ int init_stat(Stat* stat)
     return 0;
 }
 
+static void stat_show(bool tx, Vring *ring)
+{
+    static uint64_t max_cycle;
+    struct vring_avail* avail;
+    struct vring_used* used;
+    int cpu;
+    Stat *src;
+    Stat t;
+
+    avail = ring->avail;
+    used = ring->used;
+
+    if (!used)
+        return;
+
+    if (tx)
+        src = &stat;
+    else
+        src = &rx_stat;
+
+#define s_diff(n) \
+    t.n = src->n - src->l##n; \
+    src->l##n = src->n;
+
+    s_diff(count);
+    s_diff(kick_num);
+    s_diff(call_num);
+    s_diff(call_skip_num);
+    s_diff(idle);
+
+    if (t.idle > max_cycle)
+        max_cycle = t.idle;
+
+
+    cpu = 100 - t.idle * 100 / max_cycle;
+
+    printf("%s CPU: %d%% : %ld kick: %ld call: %ld skip call: %ld [avail: %u/%u used: %u/%u]\n",
+           tx ? "TX" : "RX",
+           cpu,
+           t.count,
+           t.kick_num,
+           t.call_num,
+           t.call_skip_num,
+           ring->last_avail_idx,
+           avail->idx,
+           ring->last_used_idx,
+           used->idx
+          );
+
+}
+
 static void * stat_thread(void *p)
 {
     VhostServer *vhost_server = p;
     VringTable *ring_table = &vhost_server->vring_table;
     Vring *tx_ring = &ring_table->vring[VHOST_CLIENT_VRING_IDX_TX];
-    struct vring_avail* tx_avail;
-    struct vring_used* tx_used;
-    Stat t;
-
-#define s_diff(n) \
-    t.n = stat.n - stat.l##n; \
-    stat.l##n = stat.n;
-
+    Vring *rx_ring = &ring_table->vring[VHOST_CLIENT_VRING_IDX_RX];
 
     while (true) {
         sleep(1);
 
-        tx_avail = tx_ring->avail;
-        tx_used = tx_ring->used;
-
-        if (!tx_used) {
-            continue;
-        }
-
-        s_diff(count);
-        s_diff(kick_num);
-        s_diff(call_num);
-        s_diff(call_skip_num);
-        s_diff(idle);
-
-        printf("idel: %lu tx: %ld kick: %ld call: %ld skip call: %ld tx[avail: %u/%u used: %u/%u]\n",
-               t.idle,
-               t.count,
-               t.kick_num,
-               t.call_num,
-               t.call_skip_num,
-               tx_ring->last_avail_idx,
-               tx_avail->idx,
-               tx_ring->last_used_idx,
-               tx_used->idx
-               );
+        stat_show(true, tx_ring);
+        stat_show(false, rx_ring);
+        printf("\n");
     }
 
     return NULL;

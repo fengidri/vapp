@@ -63,4 +63,23 @@ void dump_vhost_vring(struct vhost_vring* vring);
 int vhost_user_send_fds(int fd, const struct VhostUserMsg *msg, int *fds, size_t fd_num);
 int vhost_user_recv_fds(int fd, const struct VhostUserMsg *msg, int *fds, size_t *fd_num);
 
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <linux/udp.h>
+
+#include <arpa/inet.h>
+#include "packet.h"
+
+struct packet{
+    char packet[1500];
+    char payload[14];
+    struct packet_info info;
+    struct sockaddr_in to;
+    struct sockaddr_in from;
+
+    void *hdr;
+    int len;
+};
+
 #endif /* COMMON_H_ */

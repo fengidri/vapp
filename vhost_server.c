@@ -22,7 +22,8 @@
 #include "vring.h"
 
 bool dump_packet;
-bool busy_mode;
+bool busy_mode = true;
+bool rx_busy_mode;
 
 typedef int (*MsgHandler)(VhostServer* vhost_server, ServerMsg* msg);
 
@@ -386,13 +387,13 @@ static int _get_vring_base(VhostServer* vhost_server, ServerMsg* msg)
 
     vq = &vhost_server->vring_table.vring[idx];
 
-    if (idx == VHOST_CLIENT_VRING_IDX_TX && vq->enabled) {
+    if (vq->enabled) {
         vq->reset = true;
         vq->polling = false;
         while (true) {
             mb();
 
-            if (vq->tx_stopped)
+            if (vq->stopped)
                 break;
         }
     }
@@ -461,7 +462,7 @@ static int _kick_server(FdNode* node)
     return 0;
 }
 
-static void *busy_mode_cycle(void *p)
+static void *busy_mode_tx_cycle(void *p)
 {
     VhostServer* vhost_server = p;
 
@@ -471,6 +472,15 @@ static void *busy_mode_cycle(void *p)
     return NULL;
 }
 
+static void *busy_mode_rx_cycle(void *p)
+{
+    VhostServer* vhost_server = p;
+
+    process_avail_vring_busy(&vhost_server->vring_table,
+                             VHOST_CLIENT_VRING_IDX_RX);
+
+    return NULL;
+}
 
 static int _vring_enable(VhostServer* vhost_server, ServerMsg* msg)
 {
@@ -483,7 +493,11 @@ static int _vring_enable(VhostServer* vhost_server, ServerMsg* msg)
         vq->enabled = true;
 
     if (idx == VHOST_CLIENT_VRING_IDX_TX && busy_mode) {
-        pthread_create(&th, 0, busy_mode_cycle, vhost_server);
+        pthread_create(&th, 0, busy_mode_tx_cycle, vhost_server);
+    }
+
+    if (idx == VHOST_CLIENT_VRING_IDX_RX && rx_busy_mode) {
+        pthread_create(&th, 0, busy_mode_rx_cycle, vhost_server);
     }
 
     return 0;
@@ -543,7 +557,12 @@ static int _set_vring_call(VhostServer* vhost_server, ServerMsg* msg)
 
         if (idx == VHOST_CLIENT_VRING_IDX_TX && busy_mode) {
             pthread_t th;
-            pthread_create(&th, 0, busy_mode_cycle, vhost_server);
+            pthread_create(&th, 0, busy_mode_tx_cycle, vhost_server);
+        }
+
+        if (idx == VHOST_CLIENT_VRING_IDX_RX && rx_busy_mode) {
+            pthread_t th;
+            pthread_create(&th, 0, busy_mode_rx_cycle, vhost_server);
         }
     }
 

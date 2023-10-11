@@ -36,6 +36,7 @@ typedef struct {
 } Stat;
 
 extern Stat stat;
+extern Stat rx_stat;
 
 int init_stat(Stat* stat);
 int update_stat(Stat* stat, uint32_t count);

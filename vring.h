@@ -82,7 +82,7 @@ typedef struct {
   uint16_t signalled_used_valid;
 
   bool polling;
-  bool tx_stopped;
+  bool stopped;
 
   bool enabled;
   bool reset;

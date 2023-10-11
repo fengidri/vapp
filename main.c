@@ -19,6 +19,8 @@
 
 static struct sigaction sigact;
 int app_running = 0;
+// support version 1.0
+int hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
 
 static void signal_handler(int);
 static void init_signals(void);
@@ -26,6 +28,45 @@ static void cleanup(void);
 extern bool dump_packet;
 extern bool drop_packet;
 extern bool busy_mode;
+extern bool rx_busy_mode;
+
+struct packet udp_packet;
+
+static void udp_packet_init()
+{
+    struct packet_info *info;
+    struct virtio_net_hdr *hdr;
+
+    info = &udp_packet.info;
+
+    info->dmac = (unsigned char *)"\x52\x55\x00\xd1\x97\xb8";
+    info->smac = (unsigned char *)"\xff\xff\xff\xff\xff\xff";
+    info->head = udp_packet.packet + hdr_len;
+    info->payload = udp_packet.payload;
+    info->payload_size = sizeof(udp_packet.payload);
+
+    info->to = &udp_packet.to;
+    info->from = &udp_packet.from;
+
+    info->to->sin_addr.s_addr = inet_addr("10.0.3.100");
+    info->to->sin_port = htons(8080);
+
+    info->from->sin_addr.s_addr = inet_addr("10.0.3.101");
+    info->from->sin_port = htons(8080);
+
+    xudp_packet_udp_payload(info);
+
+    hdr = (void *)info->packet - hdr_len;
+    hdr->flags = 0;
+    hdr->gso_type = 0;
+    hdr->hdr_len = 0;
+    hdr->gso_size = 0;
+    hdr->csum_start = 0;
+    hdr->csum_offset = 0;
+
+    udp_packet.hdr = hdr;
+    udp_packet.len = info->len + hdr_len;
+}
 
 int main(int argc, char* argv[])
 {
@@ -34,10 +75,12 @@ int main(int argc, char* argv[])
     VhostClient *vhost_master = 0;
     VhostServer *vhost_slave = 0;
 
+    udp_packet_init();
+
     atexit(cleanup);
     init_signals();
 
-    while ((opt = getopt(argc, argv, "q:s:c:dpb")) != -1) {
+    while ((opt = getopt(argc, argv, "q:s:c:dpbr")) != -1) {
 
         switch (opt) {
         case 'q':
@@ -58,6 +101,9 @@ int main(int argc, char* argv[])
         case 'p':
             drop_packet = true;
             break;
+        case 'r':
+            rx_busy_mode = true;
+            break;
         default:
             break;
         }
@@ -77,6 +123,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "\t-c - act as slave client\n");
         fprintf(stderr, "\t-d - dump packet\n");
         fprintf(stderr, "\t-p - drop packet\n");
+        fprintf(stderr, "\t-r - rx busy mode. put udp packet to guest.\n");
         exit(EXIT_FAILURE);
     }
 
