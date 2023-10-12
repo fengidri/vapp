@@ -13,6 +13,7 @@
 
 #include <stdbool.h>
 #include "client.h"
+#include "stat.h"
 
 // Number of vring structures used in Linux vhost. Max 32768.
 enum { VHOST_VRING_SIZE = 32*1024 };
@@ -69,6 +70,8 @@ typedef struct {
     MapHandler map_handler;
 } ProcessHandler;
 
+struct VringTable;
+
 typedef struct {
   int kickfd, callfd;
   struct vring_desc* desc;
@@ -87,6 +90,10 @@ typedef struct {
   bool enabled;
   bool reset;
 
+
+  Stat *stat;
+
+  int (*process_desc)(void *cur, uint32_t len, uint32_t offset);
 
 } Vring;
 
@@ -110,7 +117,7 @@ int set_host_vring(Client* client, struct vhost_vring *vring, int index);
 
 int set_host_vring_table(struct vhost_vring* vring_table[], size_t vring_table_num, Client* client);
 
-typedef struct {
+typedef struct VringTable{
     ProcessHandler handler;
     Vring vring[VHOST_CLIENT_VRING_NUM];
     uint64_t features;

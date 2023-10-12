@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include "vring.h"
 #include "stat.h"
+#include "vhost_server.h"
 
 Stat stat;
 Stat rx_stat;
@@ -97,7 +98,6 @@ static void * stat_thread(void *p)
 
     return NULL;
 }
-
 
 int start_stat(VhostServer *vhost_server)
 {

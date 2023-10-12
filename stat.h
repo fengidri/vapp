@@ -45,7 +45,4 @@ int print_stat(Stat* stat);
 
 struct VhostServer;
 
-#include "vhost_server.h"
-int start_stat(struct VhostServer *vhost_server);
-
 #endif /* STAT_H_ */

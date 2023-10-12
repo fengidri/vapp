@@ -27,8 +27,6 @@
 bool drop_packet;
 extern bool dump_packet;
 
-extern struct packet udp_packet;
-
 static struct vhost_vring* new_vring(void* vring_base)
 {
     struct vhost_vring* vring = (struct vhost_vring*) vring_base;
@@ -224,84 +222,26 @@ static int process_desc(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
     ProcessHandler* handler = &vring_table->handler;
     uint16_t u_idx = vring_table->vring[v_idx].last_used_idx % num;
     uint16_t d_idx = avail->ring[a_idx];
-    uint32_t i, len = 0;
-    size_t buf_size = ETH_PACKET_SIZE;
-    uint8_t buf[buf_size];
-//    struct virtio_net_hdr *hdr = 0;
-//    size_t hdr_len = sizeof(struct virtio_net_hdr);
+    uint32_t i, copied = 0, offset = 0;
+    Vring *vq;
+
+    vq = &vring_table->vring[v_idx];
 
     i=d_idx;
     for (;;) {
         void* cur = 0;
         uint32_t cur_len = desc[i].len;
 
-        if (!drop_packet) {
-            // map the address
-            if (handler && handler->map_handler) {
-                cur = (void*)handler->map_handler(handler->context, desc[i].addr);
-            } else {
-                cur = (void*) (uintptr_t) desc[i].addr;
-            }
-
-            if (len + cur_len < buf_size) {
-                memcpy(buf + len, cur, cur_len);
-            } else {
-                break;
-            }
-        }
-
-        len += cur_len;
-
-        if (desc[i].flags & VIRTIO_DESC_F_NEXT) {
-            i = desc[i].next;
+        // map the address
+        if (handler && handler->map_handler) {
+            cur = (void*)handler->map_handler(handler->context, desc[i].addr);
         } else {
-            break;
+            cur = (void*) (uintptr_t) desc[i].addr;
         }
-    }
 
-    if (!len){
-        return -1;
-    }
+        copied += vq->process_desc(cur, cur_len, offset);
 
-    // add it to the used ring
-    used->ring[u_idx].id = d_idx;
-    used->ring[u_idx].len = len;
-    return 0;
-}
-
-static int put_rx(VringTable* vring_table, uint32_t v_idx, uint32_t a_idx)
-{
-    struct vring_desc*  desc  = vring_table->vring[v_idx].desc;
-    struct vring_avail* avail = vring_table->vring[v_idx].avail;
-    struct vring_used*  used  = vring_table->vring[v_idx].used;
-    unsigned int        num   = vring_table->vring[v_idx].num;
-
-    ProcessHandler* handler = &vring_table->handler;
-    uint16_t u_idx = vring_table->vring[v_idx].last_used_idx % num;
-    uint16_t d_idx = avail->ring[a_idx];
-    uint32_t i, copied = 0, copy;
-
-    i=d_idx;
-    for (;;) {
-        void* cur = 0;
-        uint32_t cur_len = desc[i].len;
-
-        copy = udp_packet.len - copied;
-
-        if (copy) {
-            // map the address
-            if (handler && handler->map_handler) {
-                cur = (void*)handler->map_handler(handler->context, desc[i].addr);
-            } else {
-                cur = (void*) (uintptr_t) desc[i].addr;
-            }
-
-            if (cur_len < copy)
-                copy = cur_len;
-
-            memcpy(cur, udp_packet.hdr + copied, copy);
-            copied += copy;
-        }
+        offset += cur_len;
 
         if (desc[i].flags & VIRTIO_DESC_F_NEXT) {
             i = desc[i].next;
@@ -351,57 +291,13 @@ static int __process_avail_vring_busy(VringTable* vring_table, uint32_t v_idx)
         mb();
         call(vring_table, v_idx);
 
-        stat.count += count;
+        vq->stat->count += count;
     } else {
-        stat.idle += 1;
+        vq->stat->idle += 1;
     }
 
     return count;
 }
-
-static int __process_rx_vring_busy(VringTable* vring_table, uint32_t v_idx)
-{
-    Vring *vq;
-    struct vring_avail* avail;
-    struct vring_used* used;
-    unsigned int num;
-    uint32_t count = 0;
-    uint16_t a_idx;
-
-    vq = &vring_table->vring[v_idx];
-
-    avail = vq->avail;
-    used  = vq->used;
-    num   = vq->num;
-
-    a_idx = vq->last_avail_idx % num;
-
-    for (count = 0; count < MAX_PKT_BURST; ) {
-        if (vq->last_avail_idx == avail->idx)
-            break;
-
-        put_rx(vring_table, v_idx, a_idx);
-
-        a_idx = (a_idx + 1) % num;
-
-        vq->last_avail_idx++;
-        vq->last_used_idx++;
-        count++;
-    }
-
-    if (count) {
-        used->idx = vq->last_used_idx;
-        mb();
-        call(vring_table, v_idx);
-
-        rx_stat.count += count;
-    } else {
-        rx_stat.idle += 1;
-    }
-
-    return count;
-}
-
 
 int process_avail_vring_busy(VringTable* vring_table, uint32_t v_idx)
 {
@@ -419,13 +315,8 @@ int process_avail_vring_busy(VringTable* vring_table, uint32_t v_idx)
 
     printf("=== start tx polling\n");
 
-    if (v_idx == VHOST_CLIENT_VRING_IDX_TX) {
-        while (vq->polling)
-            __process_avail_vring_busy(vring_table, v_idx);
-    } else {
-        while (vq->polling)
-            __process_rx_vring_busy(vring_table, v_idx);
-    }
+    while (vq->polling)
+        __process_avail_vring_busy(vring_table, v_idx);
 
     mb();
     vq->stopped = true;

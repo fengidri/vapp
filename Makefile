@@ -2,7 +2,7 @@ SOURCES=main.c common.c
 SOURCES+=shm.c fd_list.c stat.c vring.c
 SOURCES+=server.c vhost_server.c
 SOURCES+=client.c vhost_client.c
-SOURCES+=packet.c
+SOURCES+=packet.c process.c
 
 HEADERS=common.h
 HEADERS+=shm.h fd_list.h stat.h vring.h

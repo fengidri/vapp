@@ -20,6 +20,7 @@
 #include "shm.h"
 #include "vhost_server.h"
 #include "vring.h"
+#include "process.h"
 
 bool dump_packet;
 bool busy_mode = true;
@@ -465,6 +466,12 @@ static int _kick_server(FdNode* node)
 static void *busy_mode_tx_cycle(void *p)
 {
     VhostServer* vhost_server = p;
+    Vring *vq;
+
+    vq = &vhost_server->vring_table.vring[VHOST_CLIENT_VRING_IDX_TX];
+
+    vq->process_desc = process_tx_desc;
+    vq->stat = &stat;
 
     process_avail_vring_busy(&vhost_server->vring_table,
                              VHOST_CLIENT_VRING_IDX_TX);
@@ -475,6 +482,12 @@ static void *busy_mode_tx_cycle(void *p)
 static void *busy_mode_rx_cycle(void *p)
 {
     VhostServer* vhost_server = p;
+    Vring *vq;
+
+    vq = &vhost_server->vring_table.vring[VHOST_CLIENT_VRING_IDX_RX];
+
+    vq->process_desc = process_rx_desc;
+    vq->stat = &rx_stat;
 
     process_avail_vring_busy(&vhost_server->vring_table,
                              VHOST_CLIENT_VRING_IDX_RX);
@@ -654,6 +667,8 @@ static AppHandlers vhost_server_handlers =
         .in_handler = in_msg_server,
         .poll_handler = poll_server
 };
+
+int start_stat(struct VhostServer *vhost_server);
 
 int run_vhost_server(VhostServer* vhost_server)
 {
