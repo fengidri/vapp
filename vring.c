@@ -314,6 +314,9 @@ int process_avail_vring_busy(VringTable* vring_table, uint32_t v_idx)
     vq->stopped = false;
 
     printf("=== start tx polling\n");
+    printf("=== avail %p avail ring %p\n", vq->avail, vq->avail->ring);
+    printf("=== used %p used ring %p\n", vq->used, vq->used->ring);
+    printf("=== desc %p\n", vq->desc);
 
     while (vq->polling)
         __process_avail_vring_busy(vring_table, v_idx);

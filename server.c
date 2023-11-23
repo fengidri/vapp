@@ -81,7 +81,7 @@ int init_server(Server* server, int is_listen)
 
         if (connect(server->sock, (struct sockaddr *) &un, len) == -1) {
             perror("connect");
-            return -1;
+            exit(-1);
         }
     }
 
@@ -123,6 +123,8 @@ static int receive_sock_server(FdNode* node)
         perror("recv");
         status = ServerSockError;
     } else if (r == 0) {
+        printf("*** UNIX Socket closed.\n");
+        exit(-1);
         status = ServerSockDone;
         del_fd_list(&server->fd_list, FD_READ, sock);
         close(sock);

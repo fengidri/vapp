@@ -45,6 +45,9 @@ static void stat_show(bool tx, Vring *ring)
     if (!used)
         return;
 
+    if (!ring->polling)
+        return;
+
     if (tx)
         src = &stat;
     else

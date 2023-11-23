@@ -389,6 +389,9 @@ static int _get_vring_base(VhostServer* vhost_server, ServerMsg* msg)
     vq = &vhost_server->vring_table.vring[idx];
 
     if (vq->enabled) {
+        if (idx == VHOST_CLIENT_VRING_IDX_RX && !rx_busy_mode)
+            return 1;
+
         vq->reset = true;
         vq->polling = false;
         while (true) {
