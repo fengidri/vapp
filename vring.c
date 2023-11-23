@@ -334,10 +334,12 @@ int process_avail_vring(VringTable* vring_table, uint32_t v_idx)
     struct vring_avail* avail;
     struct vring_used* used;
     unsigned int num;
-    uint32_t count = 0;
-    uint16_t a_idx;
+    uint64_t count = 0;
+    uint16_t a_idx, idx;
 
     vq = &vring_table->vring[v_idx];
+
+    vq->used->flags = VRING_AVAIL_F_NO_INTERRUPT;
 
     avail = vq->avail;
     used  = vq->used;
@@ -345,11 +347,20 @@ int process_avail_vring(VringTable* vring_table, uint32_t v_idx)
 
     a_idx = vq->last_avail_idx % num;
 
+    idx = *(volatile uint16_t*)&avail->idx;
+
     // Loop all avail descriptors
     for (;;) {
         /* we reached the end of avail */
-        if (vq->last_avail_idx == avail->idx) {
-            break;
+        if (vq->last_avail_idx == idx) {
+            mb();
+            vhost_avail_event(vq) = vq->last_avail_idx;
+
+            mb();
+            idx = *(volatile uint16_t*)&avail->idx;
+            if (vq->last_avail_idx == idx) {
+                break;
+            }
         }
 
         process_desc(vring_table, v_idx, a_idx);
@@ -363,7 +374,6 @@ int process_avail_vring(VringTable* vring_table, uint32_t v_idx)
         if (count % MAX_PKT_BURST == 0) {
             mb();
 
-            vhost_avail_event(vq) = vq->last_avail_idx;
 
             used->idx = vq->last_used_idx;
             mb();
@@ -373,8 +383,6 @@ int process_avail_vring(VringTable* vring_table, uint32_t v_idx)
 
     if (count % MAX_PKT_BURST) {
         mb();
-
-        vhost_avail_event(vq) = vq->last_avail_idx;
 
         used->idx = vq->last_used_idx;
         mb();

@@ -23,7 +23,7 @@
 #include "process.h"
 
 bool dump_packet;
-bool busy_mode = true;
+bool busy_mode;
 bool rx_busy_mode;
 
 typedef int (*MsgHandler)(VhostServer* vhost_server, ServerMsg* msg);
@@ -457,9 +457,6 @@ static int _kick_server(FdNode* node)
         fprintf(stdout, "Kick fd closed\n");
         del_fd_list(&vhost_server->server->fd_list, FD_READ, kickfd);
     } else {
-#if 0
-        fprintf(stdout, "Got kick %"PRId64"\n", kick_it);
-#endif
         _poll_avail_vring(vhost_server, VHOST_CLIENT_VRING_IDX_TX);
     }
 
@@ -473,7 +470,6 @@ static void *busy_mode_tx_cycle(void *p)
 
     vq = &vhost_server->vring_table.vring[VHOST_CLIENT_VRING_IDX_TX];
 
-    vq->process_desc = process_tx_desc;
     vq->stat = &stat;
 
     process_avail_vring_busy(&vhost_server->vring_table,
@@ -489,7 +485,6 @@ static void *busy_mode_rx_cycle(void *p)
 
     vq = &vhost_server->vring_table.vring[VHOST_CLIENT_VRING_IDX_RX];
 
-    vq->process_desc = process_rx_desc;
     vq->stat = &rx_stat;
 
     process_avail_vring_busy(&vhost_server->vring_table,
@@ -507,6 +502,11 @@ static int _vring_enable(VhostServer* vhost_server, ServerMsg* msg)
     vq = &vhost_server->vring_table.vring[idx];
     if (vq->desc)
         vq->enabled = true;
+
+    if (idx == VHOST_CLIENT_VRING_IDX_TX)
+        vq->process_desc = process_tx_desc;
+    else
+        vq->process_desc = process_rx_desc;
 
     if (idx == VHOST_CLIENT_VRING_IDX_TX && busy_mode) {
         pthread_create(&th, 0, busy_mode_tx_cycle, vhost_server);
@@ -637,29 +637,29 @@ static int in_msg_server(void* context, ServerMsg* msg)
 
 static int poll_server(void* context)
 {
-    VhostServer* vhost_server = (VhostServer*) context;
-    int tx_idx = VHOST_CLIENT_VRING_IDX_TX;
-    int rx_idx = VHOST_CLIENT_VRING_IDX_RX;
+    //VhostServer* vhost_server = (VhostServer*) context;
+    //int tx_idx = VHOST_CLIENT_VRING_IDX_TX;
+    //int rx_idx = VHOST_CLIENT_VRING_IDX_RX;
 
-    if (vhost_server->vring_table.vring[rx_idx].desc) {
-        // process TX ring
-        if (vhost_server->is_polling && !busy_mode) {
-            _poll_avail_vring(vhost_server, tx_idx);
-        }
+    //if (vhost_server->vring_table.vring[rx_idx].desc) {
+    //    // process TX ring
+    //    //if (vhost_server->is_polling && !busy_mode) {
+    //    //    _poll_avail_vring(vhost_server, tx_idx);
+    //    //}
 
-        // process RX ring
-        if (vhost_server->buffer_size) {
-            // send a packet from the buffer
-            put_vring(&vhost_server->vring_table, rx_idx,
-                      vhost_server->buffer, vhost_server->buffer_size);
+    //    // process RX ring
+    //    if (vhost_server->buffer_size) {
+    //        // send a packet from the buffer
+    //        put_vring(&vhost_server->vring_table, rx_idx,
+    //                  vhost_server->buffer, vhost_server->buffer_size);
 
-            // signal the client
-            kick(&vhost_server->vring_table, rx_idx);
+    //        // signal the client
+    //        kick(&vhost_server->vring_table, rx_idx);
 
-            // mark the buffer empty
-            vhost_server->buffer_size = 0;
-        }
-    }
+    //        // mark the buffer empty
+    //        vhost_server->buffer_size = 0;
+    //    }
+    //}
 
     return 0;
 }

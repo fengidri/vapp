@@ -18,9 +18,12 @@ enum {
 #define MAX_PKT_BURST 64
 
 
-#define mb()		__asm__ __volatile__ ("": : :"memory")
+//#define mb()		__asm__ __volatile__ ("": : :"memory")
+
+#define mb()	asm volatile("mfence":::"memory")
 #define rmb()		mb()
-#define wmb()		__asm__ __volatile__ ("": : :"memory")
+//#define wmb()		__asm__ __volatile__ ("": : :"memory")
+#define wmb()	asm volatile("mfence":::"memory")
 
 // Structures imported from the Linux headers.
 struct vhost_vring_state { unsigned int index, num; };

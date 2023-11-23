@@ -32,7 +32,7 @@ int init_stat(Stat* stat)
 
 static void stat_show(bool tx, Vring *ring)
 {
-    static uint64_t max_cycle;
+    static uint64_t max_cycle = 1;
     struct vring_avail* avail;
     struct vring_used* used;
     int cpu;
@@ -43,9 +43,6 @@ static void stat_show(bool tx, Vring *ring)
     used = ring->used;
 
     if (!used)
-        return;
-
-    if (!ring->polling)
         return;
 
     if (tx)
